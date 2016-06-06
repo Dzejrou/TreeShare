@@ -13,120 +13,133 @@ using TreeShare.Utils;
 namespace TreeShare
 {
 	/// <summary>
-	/// 
+	/// Represents a client that synchronizes it's tracked
+	/// directory tree with the TreeShare server.
 	/// </summary>
 	sealed class Client
 	{
 		/// <summary>
-		/// 
+		/// Name of the tracked directory name.
 		/// </summary>
 		public string TrackedDirectory { get; set; }
 
 		/// <summary>
-		/// 
+		/// Period (in seconds) between file checks.
 		/// </summary>
 		public int CheckPeriod = 10;
 
 		/// <summary>
-		/// 
+		/// Database that stores file info.
 		/// </summary>
 		private ClientDatabase db = new ClientDatabase();
 
 		/// <summary>
-		/// 
+		/// Timer used to periodically check all files.
 		/// </summary>
 		private Timer checkTimer;
 
 		/// <summary>
-		/// 
+		/// List of files that have changed since the last check.
 		/// </summary>
 		private List<string> filesChanged = new List<string>();
 
 		/// <summary>
-		/// 
+		/// List of files that have been created since the last check.
 		/// </summary>
 		private List<string> filesCreated = new List<string>();
 
 		/// <summary>
-		/// 
+		/// List of files that have been deleted since the last check
 		/// </summary>
 		private List<string> filesDeleted = new List<string>();
 
 		/// <summary>
-		/// 
+		/// List of files that have been checked in the last check.
 		/// </summary>
 		private List<string> filesChecked = new List<string>();
 
 		/// <summary>
-		/// 
+		/// File containing client configuration info.
 		/// </summary>
 		private readonly string configFile = "client.conf";
 
 		/// <summary>
-		/// 
+		/// File containing user login credentials.
 		/// </summary>
 		private readonly string userData = "user.conf";
 
 		/// <summary>
-		/// 
+		/// File containing ignored file endings.
 		/// </summary>
 		private readonly string ignoredEndingsFile = "ignored.conf";
 
 		/// <summary>
-		/// 
+		/// Address that the server listens on.
 		/// </summary>
 		private string serverAddress;
 
 		/// <summary>
-		/// 
+		/// Port that the server listens on.
 		/// </summary>
 		private int serverPort;
 
 		/// <summary>
-		/// 
+		/// Port that the client listens on.
 		/// </summary>
 		private int listenPort;
 
 		/// <summary>
-		/// 
+		/// Listener used to accept connections from the server.
 		/// </summary>
 		private TcpListener tcpListener;
 
 		/// <summary>
-		/// 
+		/// If true, the userData file will be ignored and console
+		/// login will be required.
 		/// </summary>
 		private bool forceManualAuthentization;
 
 		/// <summary>
-		/// 
+		/// True if this client can create new files.
 		/// </summary>
 		private bool canCreateFiles;
 
 		/// <summary>
-		/// 
+		/// If true, the console will be hidden.
 		/// </summary>
 		private bool daemonize;
 
 		/// <summary>
-		/// 
+		/// Name of the user.
 		/// </summary>
 		private string name;
 
 		/// <summary>
-		/// 
+		/// Hash of the users password.
 		/// </summary>
 		private string passwordHash;
 
 		/// <summary>
-		/// 
+		/// List of ignored file name endings.
 		/// </summary>
 		private List<string> ignoredNameEndings;
 
 		/// <summary>
-		/// 
+		/// Prefix that should be prepended to the TrackedDirectory
+		/// variable (used to track sub trees).
 		/// </summary>
-		/// <param name="a"></param>
-		/// <param name="p"></param>
+		private string subTreePrefix;
+
+		/// <summary>
+		/// Encoding used for communication with the server.
+		/// </summary>
+		private readonly Encoding encoding = Encoding.Default;
+
+		/// <summary>
+		/// Constructor.
+		/// </summary>
+		/// <param name="a">Address of the server.</param>
+		/// <param name="p">Port of the server.</param>
 		public Client(string a, int p)
 		{
 			serverAddress = a;
@@ -135,10 +148,12 @@ namespace TreeShare
 			canCreateFiles = true;
 			daemonize = false;
 			ignoredNameEndings = new List<string>();
+			subTreePrefix = "";
 		}
 
 		/// <summary>
-		/// 
+		/// Starts the client and causes it to periodically
+		/// check files and listen to the server announcements.
 		/// </summary>
 		public void Start()
 		{
@@ -185,22 +200,47 @@ namespace TreeShare
 		}
 
 		/// <summary>
-		/// 
+		/// Handles a notification from the server (mostly
+		/// regardin file changes).
 		/// </summary>
-		/// <param name="s"></param>
+		/// <param name="s">Socket used for the communication.</param>
 		private void HandleServerNotice(Socket s)
 		{
 			try
 			{
 				using(var stream = new NetworkStream(s))
-				using(var reader = new StreamReader(stream))
-				using(var writer = new StreamWriter(stream))
+				using(var reader = new StreamReader(stream, encoding))
+				using(var writer = new StreamWriter(stream, encoding))
 				{
 					writer.AutoFlush = true;
 					//reader.BaseStream.ReadTimeout = 10000;
 
 					var message = ProtocolHelper.ExtractProtocol(reader.ReadLine());
 					string name = reader.ReadLine();
+					if(name.StartsWith(subTreePrefix + TrackedDirectory + @"\"))
+					{
+						name = name.Substring(subTreePrefix.Length);
+
+						if(message != Protocol.FILE_DELETED)
+						{
+							writer.WriteLine(Protocol.SUCCESS);
+						}
+						else
+							reader.ReadLine(); // T_E token, can be ignored here.
+						Console.WriteLine("ACCEPTED {0}, does start with {1}", name, subTreePrefix + TrackedDirectory + @"\");
+					}
+					else
+					{
+						if(message != Protocol.FILE_DELETED)
+						{
+							writer.WriteLine(Protocol.FAIL);
+						}
+						else
+							reader.ReadLine(); // T_E token, can be ignored here.
+						writer.WriteLine(Protocol.TRANSMISSION_END);
+						Console.WriteLine("DENIED {0}, does not start with {1}", name, subTreePrefix + TrackedDirectory + @"\");
+						return;
+					}
 
 					if(message == Protocol.NONE || name == null)
 						return;
@@ -211,7 +251,8 @@ namespace TreeShare
 					{
 						file = new DB.File(name);
 						file.DateModified = FileHelper.Create(file.Name);
-						db.GetFiles().Add(file);
+						if(file.DateModified != DateTime.MaxValue)
+							db.GetFiles().Add(file);
 					}
 
 					if(message == Protocol.FILE_DELETED)
@@ -232,10 +273,10 @@ namespace TreeShare
 							{
 								string line;
 								using(var fstream = System.IO.File.OpenWrite(tmpName))
-								using(var fileWriter = new StreamWriter(fstream))
+								using(var fileWriter = new StreamWriter(fstream, encoding))
 								{
 									while((line = reader.ReadLine()) != null && line != "TRANSMISSION_END")
-										fileWriter.WriteLine(line);
+										fileWriter.Write(line);
 									fileWriter.BaseStream.SetLength(fileWriter.BaseStream.Position);
 
 									if(line != "TRANSMISSION_END")
@@ -270,7 +311,9 @@ namespace TreeShare
 		}
 
 		/// <summary>
-		/// 
+		/// Performs initial authentication either from config file, or
+		/// (if it's missing or manual authentication is forced) from
+		/// the console (and saves info on success).
 		/// </summary>
 		/// <returns>True if authentication succeeded, false otherwise.</returns>
 		private bool Authenticate()
@@ -295,8 +338,8 @@ namespace TreeShare
 			bool authenticated = false; // TODO: Handle Socket Exception below.
 			using(var client = ConnectToServer())
 			using(var stream = client.GetStream())
-			using(var writer = new StreamWriter(stream))
-			using(var reader = new StreamReader(stream))
+			using(var writer = new StreamWriter(stream, encoding))
+			using(var reader = new StreamReader(stream, encoding))
 			{ // Actual authentication communication.
 				writer.AutoFlush = true;
 				writer.WriteLine(register ? Protocol.REGISTER : Protocol.AUTHENTICATE);
@@ -306,15 +349,18 @@ namespace TreeShare
 				Protocol response = ProtocolHelper.ExtractProtocol(reader.ReadLine());
 				authenticated = (response == Protocol.SUCCESS);
 
-				writer.WriteLine(Protocol.NEW_CONNECTION);
-				writer.WriteLine(listenPort);
-				writer.WriteLine(Protocol.TRANSMISSION_END);
+				if(authenticated)
+				{
+					writer.WriteLine(Protocol.NEW_CONNECTION);
+					writer.WriteLine(listenPort);
+					writer.WriteLine(Protocol.TRANSMISSION_END);
+				}
 			}
 
 			if(consoleAuthentication && authenticated)
 			{ // Save the credentials for later use.
 				using(var stream = System.IO.File.Open(userData, FileMode.Create))
-				using(var writer = new StreamWriter(stream))
+				using(var writer = new StreamWriter(stream, encoding))
 				{
 					writer.WriteLine(name);
 					writer.WriteLine(passwordHash);
@@ -372,9 +418,10 @@ namespace TreeShare
 		}
 
 		/// <summary>
-		/// 
+		/// Checks the tracked directory for changes and
+		/// notifies the server if necessary.
 		/// </summary>
-		/// <param name="state"></param>
+		/// <param name="state">State required by the timer, not used.</param>
 		public void PerformCheck(object state)
 		{
 			CheckDirectory(TrackedDirectory);
@@ -383,9 +430,9 @@ namespace TreeShare
 		}
 
 		/// <summary>
-		/// 
+		/// Checks a given directory for file changes.
 		/// </summary>
-		/// <param name="dir"></param>
+		/// <param name="dir">Path to the directory.</param>
 		public void CheckDirectory(string dir)
 		{
 			try
@@ -408,11 +455,19 @@ namespace TreeShare
 		}
 
 		/// <summary>
-		/// 
+		/// Checks a single file and handles changes if
+		/// any occured (modification, creation).
 		/// </summary>
-		/// <param name="file"></param>
+		/// <param name="file">Path to the file.</param>
 		private void HandleFile(string file)
 		{
+			// Without this, used files would be treated as deleted.
+			if(FileHelper.FileInUse(file))
+			{
+				filesChecked.Add(file);
+				return;
+			}
+
 			if(!System.IO.File.Exists(file) || FileHelper.FileInUse(file) ||
 				file.EndsWith(".tmp") || filesChecked.Contains(file) || Ignored(file))
 				return;
@@ -439,6 +494,9 @@ namespace TreeShare
 			}
 		}
 
+		/// <summary>
+		/// Clears all file lists (changed, deleted etc.).
+		/// </summary>
 		private void ClearLists()
 		{
 			lock(filesCreated)
@@ -452,11 +510,13 @@ namespace TreeShare
 		}
 
 		/// <summary>
-		/// 
+		/// Informs server about all changes found during the last
+		/// directory checks.
 		/// </summary>
 		private void InformServer()
 		{
-			if(filesCreated.Count == 0 && filesChecked.Count == db.GetFiles().Count && filesChanged.Count == 0)
+			if((filesCreated.Count == 0 || !canCreateFiles) &&
+			   filesChecked.Count == db.GetFiles().Count && filesChanged.Count == 0)
 			{
 				// If checked == db files, we still need to clear the checked files otherwise deletes would be ignored
 				// next time we check.
@@ -473,8 +533,8 @@ namespace TreeShare
 				var client = ConnectToServer();
 				var files = db.GetFiles();
 				using(var stream = client.GetStream())
-				using(var writer = new StreamWriter(stream))
-				using(var reader = new StreamReader(stream))
+				using(var writer = new StreamWriter(stream, encoding))
+				using(var reader = new StreamReader(stream, encoding))
 				{
 					writer.AutoFlush = true;
 
@@ -496,7 +556,7 @@ namespace TreeShare
 						foreach(var file in filesCreated)
 						{
 							writer.WriteLine(Protocol.FILE_CREATED);
-							writer.WriteLine(file);
+							writer.WriteLine(subTreePrefix + file);
 							if(ProtocolHelper.ExtractProtocol(reader.ReadLine()) == Protocol.SUCCESS)
 								SendFileContents(writer, file);
 							else
@@ -520,7 +580,7 @@ namespace TreeShare
 						foreach(var file in filesChanged)
 						{
 							writer.WriteLine(Protocol.FILE_CHANGED);
-							writer.WriteLine(file);
+							writer.WriteLine(subTreePrefix + file);
 							if(ProtocolHelper.ExtractProtocol(reader.ReadLine()) == Protocol.SUCCESS)
 								SendFileContents(writer, file);
 							else
@@ -540,8 +600,16 @@ namespace TreeShare
 						foreach(var file in filesDeleted)
 						{
 							writer.WriteLine(Protocol.FILE_DELETED);
-							writer.WriteLine(file);
+							writer.WriteLine(subTreePrefix + file);
 							db.GetFiles().Remove(file);
+
+							/**
+							 * Note: This is either SUCCESS or FAIL (depending of authorization).
+							 *       Currently is ignored, assuming the user just wants to get rid of the file,
+							 *       but it may be useful to add a config option to request the data of deleted
+							 *       files to recover them if the deletion fails on the server.
+							 */
+							reader.ReadLine();
 						}
 						filesDeleted.Clear();
 					}
@@ -561,20 +629,20 @@ namespace TreeShare
 		}
 
 		/// <summary>
-		/// 
+		/// Sends the contents of a file to the server.
 		/// </summary>
-		/// <param name="writer"></param>
-		/// <param name="file"></param>
+		/// <param name="writer">StreamWriter used to send the file.</param>
+		/// <param name="file">Path to the file.</param>
 		private void SendFileContents(StreamWriter writer, string file)
 		{
 			try
 			{
 				using(var stream = System.IO.File.OpenRead(file))
-				using(var reader = new StreamReader(stream))
+				using(var reader = new StreamReader(stream, encoding))
 				{
 					string line;
 					while((line = reader.ReadLine()) != null)
-						writer.WriteLine(line);
+						if(line != "") writer.WriteLine(line);
 					writer.WriteLine(Protocol.TRANSMISSION_END);
 				}
 			}
@@ -585,15 +653,16 @@ namespace TreeShare
 		}
 
 		/// <summary>
-		/// 
+		/// Requests (and reads if authorized) contents of a given file from
+		/// the server.
 		/// </summary>
-		/// <param name="reader"></param>
-		/// <param name="writer"></param>
-		/// <param name="file"></param>
+		/// <param name="reader">StreamReader used to read authorization result and the contents of the file.</param>
+		/// <param name="writer">StreamWriter used to send the request.</param>
+		/// <param name="file">Path to the file.</param>
 		private void RequestFileContents(StreamReader reader, StreamWriter writer, string file)
 		{
 			writer.WriteLine(Protocol.REQUEST_FILE_CONTENTS);
-			writer.WriteLine(file);
+			writer.WriteLine(subTreePrefix + file);
 			string line = reader.ReadLine();
 			string tmpFile = file + ".tmp";
 
@@ -609,8 +678,12 @@ namespace TreeShare
 				try
 				{
 					reader.ReadLine(); // File name resent, here we can discard it.
+					writer.WriteLine(Protocol.SUCCESS);
+
+					Directory.CreateDirectory(Path.GetDirectoryName(file));
+
 					using(var stream = System.IO.File.OpenWrite(tmpFile))
-					using(var fileWriter = new StreamWriter(stream))
+					using(var fileWriter = new StreamWriter(stream, encoding))
 					{
 						while((line = reader.ReadLine()) != null && line != "TRANSMISSION_END" && line != "FAIL")
 							fileWriter.WriteLine(line);
@@ -619,23 +692,22 @@ namespace TreeShare
 					FileHelper.Move(tmpFile, file);
 					tmp.DateModified = System.IO.File.GetLastWriteTime(file);
 				}
-				catch(SocketException e)
-				{
-					Console.WriteLine("!!2: {0}", e.Message);
+				catch(SocketException)
+				{ // This should be connection interruption or time out.
+					FileHelper.Delete(tmpFile);
 				}
-				catch(IOException e)
-				{
-					Console.WriteLine("!!1: {0}", e.Message);
+				catch(IOException)
+				{ // Target file in use or nonexistent.
 					FileHelper.Delete(tmpFile);
 				}
 			}
 		}
 
 		/// <summary>
-		/// 
+		/// Checks if a file is ignored (based on its name's ending).
 		/// </summary>
-		/// <param name="file"></param>
-		/// <returns></returns>
+		/// <param name="file">Path to the file.</param>
+		/// <returns>True if the file is ignored, false otherwise.</returns>
 		private bool Ignored(string file)
 		{
 			foreach(var ending in ignoredNameEndings)
@@ -647,9 +719,10 @@ namespace TreeShare
 		}
 
 		/// <summary>
-		/// 
+		/// Loads the configuration for this client. See documentation
+		/// for the config options.
 		/// </summary>
-		/// <returns></returns>
+		/// <returns>True if the load was successful, false otherwise.</returns>
 		public bool LoadConfig()
 		{
 			try
@@ -685,6 +758,9 @@ namespace TreeShare
 								if(tokens[1] == "1")
 									daemonize = true;
 								break;
+							case "SubTreePrefix":
+								subTreePrefix = tokens[1];
+								break;
 							default:
 								Console.WriteLine("[ERROR] Invalid config option detected: {0}", tokens[0]);
 								break;
@@ -693,7 +769,7 @@ namespace TreeShare
 				}
 
 				using(var stream = System.IO.File.OpenRead(ignoredEndingsFile))
-				using(var reader = new StreamReader(stream))
+				using(var reader = new StreamReader(stream, encoding))
 				{
 					string line = null;
 					while((line = reader.ReadLine()) != null)
@@ -709,7 +785,8 @@ namespace TreeShare
 		}
 
 		/// <summary>
-		/// 
+		/// Asks the server for information (modification time) about all files
+		/// this client has read access to and requests contents if necessary.
 		/// </summary>
 		private void PerformInitialRequest()
 		{
@@ -719,11 +796,11 @@ namespace TreeShare
 			{
 				var client = ConnectToServer();
 				using(var stream = client.GetStream())
-				using(var reader = new StreamReader(stream))
-				using(var writer = new StreamWriter(stream))
+				using(var reader = new StreamReader(stream, encoding))
+				using(var writer = new StreamWriter(stream, encoding))
 				{
 					writer.AutoFlush = true;
-					//reader.BaseStream.ReadTimeout = 10000;
+					reader.BaseStream.ReadTimeout = 10000;
 					string line;
 					string fileName;
 					DB.File file;
@@ -747,11 +824,17 @@ namespace TreeShare
 						while(true)
 						{
 							fileName = reader.ReadLine();
-							filesOnServer.Add(fileName);
-							Console.WriteLine("Got info about file: {0}", fileName);
 
-							if(fileName == "TRANSMISSION_END")
+							if(fileName.StartsWith(subTreePrefix + TrackedDirectory + @"\"))
+								fileName = fileName.Substring(subTreePrefix.Length);
+							else if(fileName == "TRANSMISSION_END")
 								break;
+							else
+							{
+								reader.ReadLine(); // Skip modification time.
+								continue;
+							}
+							filesOnServer.Add(fileName);
 
 							line = reader.ReadLine();
 
@@ -772,16 +855,11 @@ namespace TreeShare
 						FileHelper.Delete(f);
 					}
 				}
-				Console.WriteLine("INIT INFO DONE!");
-			}
-			catch(IOException)
-			{
-				Console.WriteLine("1");
 			}
 			catch(SocketException)
-			{
-				Console.WriteLine("2");
-			}
+			{ /* Time out. */ }
+			catch(IOException)
+			{ /* File probably already deleted as RequestFileContents does not throw. */ }
 			finally
 			{
 				db.Save();
@@ -789,20 +867,20 @@ namespace TreeShare
 		}
 
 		/// <summary>
-		/// 
+		/// Connects to server and receives new port from it. Immediately
+		/// after connects to the new assigned port.
 		/// </summary>
-		/// <returns></returns>
+		/// <returns>TcpClient that can be used for communication with the client.</returns>
 		private TcpClient ConnectToServer()
 		{
 			var client = new TcpClient(serverAddress, serverPort);
-			using(var reader = new StreamReader(client.GetStream()))
+			using(var reader = new StreamReader(client.GetStream(), encoding))
 			{
 				string msg = reader.ReadLine(); // New port.
 				int newPort;
 				if(!int.TryParse(msg, out newPort))
 					throw new Exception("Server didn't sent new port!");
 
-				Console.WriteLine("Got new port: {0}", newPort);
 				var tmp = new TcpClient(serverAddress, newPort);
 				client.Close();
 				client = tmp;
@@ -812,9 +890,11 @@ namespace TreeShare
 		}
 
 		/// <summary>
-		/// 
+		/// Entry point of the program. Initializes and
+		/// starts the client.
+		/// Usage: TreeShareClient <ServerAddress> <ServerPort>
 		/// </summary>
-		/// <param name="args"></param>
+		/// <param name="args">Command line arguments.</param>
 		static void Main(string[] args)
 		{
 			int port;

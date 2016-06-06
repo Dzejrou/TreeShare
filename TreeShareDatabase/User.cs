@@ -6,32 +6,34 @@ using TreeShare.Utils;
 namespace TreeShare.DB
 {
 	/// <summary>
-	/// 
+	/// Database row representing a user.
 	/// </summary>
 	[Serializable]
 	[XmlRoot(ElementName = "User")]
 	public sealed class User : DatabaseItem
 	{
 		/// <summary>
-		/// 
+		/// Hash of the user's password (with salt).
 		/// </summary>
 		[XmlElement(ElementName = "Password")]
 		public string PasswordHash { get; set; }
 
 		/// <summary>
-		/// 
+		/// Group this user belongs to.
 		/// </summary>
 		[XmlElement(ElementName = "Group")]
 		public string Group { get; set; }
 
 		/// <summary>
-		/// 
+		/// Port this user listens on for server
+		/// announcements.
 		/// </summary>
 		[XmlIgnore]
 		public int ListenPort { get; set; }
 
 		/// <summary>
-		/// 
+		/// Address the user listens on for server
+		/// announcements.
 		/// </summary>
 		[XmlIgnore]
 		public IPAddress Address { get; set; }
@@ -59,7 +61,7 @@ namespace TreeShare.DB
 		*/
 
 		/// <summary>
-		/// 
+		/// Default constructor, used for XML serialization.
 		/// </summary>
 		public User()
 		{
@@ -70,20 +72,20 @@ namespace TreeShare.DB
 		}
 
 		/// <summary>
-		/// 
+		/// Checks if a given password matches this user's password.
 		/// </summary>
-		/// <param name="pass"></param>
-		/// <returns></returns>
+		/// <param name="pass">Password hash (without salt).</param>
+		/// <returns>True if the passwords match, false otherwise.</returns>
 		public bool Authenticate(string pass)
 		{
 			return PasswordHash == GetSaltedHash(Name, pass);
 		}
 
 		/// <summary>
-		/// 
+		/// Returns the salted version of a user password.
 		/// </summary>
-		/// <param name="name"></param>
-		/// <param name="pass"></param>
+		/// <param name="name">Name of the user.</param>
+		/// <param name="pass">Hash of the user's password (without salt).</param>
 		/// <returns></returns>
 		public static string GetSaltedHash(string name, string pass)
 		{

@@ -6,28 +6,28 @@ using System.Threading;
 namespace TreeShare.Utils
 {
 	/// <summary>
-	/// 
+	/// Utility class used to manage the console.
 	/// </summary>
 	public static class ConsoleManager
 	{
 		/// <summary>
-		/// 
+		/// Used to manipulate the console window.
 		/// </summary>
-		/// <returns></returns>
+		/// <returns>Window handle.</returns>
 		[DllImport("kernel32.dll")]
 		static extern IntPtr GetConsoleWindow();
 
 		/// <summary>
-		/// 
+		/// Used to manipulate visibility of the console window.
 		/// </summary>
-		/// <param name="hWnd"></param>
-		/// <param name="nCmdShow"></param>
-		/// <returns></returns>
+		/// <param name="hWnd">Handle of the window.</param>
+		/// <param name="nCmdShow">New status of the window.</param>
+		/// <returns>True if successful, false otherwise.</returns>
 		[DllImport("user32.dll")]
 		static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
 
 		/// <summary>
-		/// 
+		/// Shows the console window.
 		/// </summary>
 		public static void ShowConsole()
 		{
@@ -35,7 +35,7 @@ namespace TreeShare.Utils
 		}
 
 		/// <summary>
-		/// 
+		/// Hides the console window. 
 		/// </summary>
 		public static void HideConsole()
 		{
@@ -43,9 +43,11 @@ namespace TreeShare.Utils
 		}
 
 		/// <summary>
-		/// 
+		/// Hides the console window for a given
+		/// amount of time (returns once the
+		/// window is visible again).
 		/// </summary>
-		/// <param name="ms"></param>
+		/// <param name="ms">Time (in miliseconds) to hide for.</param>
 		public static void HideSleepShow(int ms)
 		{
 			HideConsole();
@@ -54,9 +56,10 @@ namespace TreeShare.Utils
 		}
 
 		/// <summary>
-		/// 
+		/// Gets a password from the console, using stars
+		/// to hide the input.
 		/// </summary>
-		/// <returns></returns>
+		/// <returns>User's password.</returns>
 		public static string GetPassword()
 		{
 			var res = new StringBuilder();

@@ -1,0 +1,12 @@
+﻿<ArrayOfFile xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+  <File>
+    <Name>sub-tree\subsub\test.txt</Name>
+    <AccessInfo />
+    <DateModified>2016-06-06T14:39:13.2852445+02:00</DateModified>
+  </File>
+  <File>
+    <Name>sub-tree\prefix-test2.txt</Name>
+    <AccessInfo />
+    <DateModified>2016-06-06T14:37:43.2440944+02:00</DateModified>
+  </File>
+</ArrayOfFile>

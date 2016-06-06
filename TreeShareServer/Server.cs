@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Net;
 using System.Net.Sockets;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using TreeShare.DB;
@@ -13,52 +14,62 @@ using TreeShare.Utils;
 namespace TreeShare
 {
 	/// <summary>
-	/// 
+	/// Represents a server that manages a directory tree which clients can
+	/// connect to and synchronize their files with.
 	/// </summary>
 	sealed class Server
 	{
 		/// <summary>
-		/// 
+		/// Database that keeps track of files, users and groups. 
 		/// </summary>
 		public ServerDatabase db = new ServerDatabase();
 
 		/// <summary>
-		/// 
+		/// Address of the network device this server listens on. 
 		/// </summary>
 		private string serverAddress;
 
 		/// <summary>
-		/// 
+		/// Number of the port this server listens on.
 		/// </summary>
 		private int serverPort;
 
 		/// <summary>
-		/// 
+		/// Lower bound of the port range used for clients.
 		/// </summary>
 		private int portLow;
 
 		/// <summary>
-		/// 
+		/// Upper bound of the port range used for clients.
 		/// </summary>
 		private int portHigh;
 
 		/// <summary>
-		/// 
+		/// Listener used to accept incoming connections from clients.
 		/// </summary>
 		private TcpListener tcpListener;
 
 		/// <summary>
-		/// 
+		/// List of port number that are cuttently used for communication
+		/// with clients.
 		/// </summary>
 		private List<int> portsInUse;
 
 		/// <summary>
-		/// 
+		/// Control variable that allows the admin to shutdown the server
+		/// from the console I/O thread without the use of locks (interlocked
+		/// used instead).
 		/// </summary>
 		private int running = 1;
 
 		/// <summary>
-		/// Constructor.
+		/// Encoding used for sending files over network.
+		/// </summary>
+		private readonly Encoding encoding = Encoding.Default;
+
+		/// <summary>
+		/// Constructor. Throws ArgumentException if it gets
+		/// and invalid address.
 		/// </summary>
 		/// <param name="a">Address the server listens on.</param>
 		/// <param name="p">Port the server listens on.</param>
@@ -79,7 +90,8 @@ namespace TreeShare
 		}
 
 		/// <summary>
-		/// 
+		/// Starts the main loop in which the server accepts client connections
+		/// and a parallel loop in which the server manages console I/O.
 		/// </summary>
 		public void Start()
 		{
@@ -112,7 +124,8 @@ namespace TreeShare
 		}
 
 		/// <summary>
-		/// 
+		/// Accepts client connections and spawns new tasks that
+		/// handle their requests.
 		/// </summary>
 		private void AcceptConnection()
 		{
@@ -129,16 +142,16 @@ namespace TreeShare
 		}
 
 		/// <summary>
-		/// 
+		/// Handles communication with a single client.
 		/// </summary>
-		/// <param name="s"></param>
+		/// <param name="s">Socket used for communication with the client.</param>
 		private void HandleConnection(Socket s)
 		{
 			int newPort = 0;
 			try
 			{
 				// Resend the client to another port.
-				using(var writer = new StreamWriter(new NetworkStream(s)))
+				using(var writer = new StreamWriter(new NetworkStream(s), encoding))
 				{
 					writer.AutoFlush = true;
 
@@ -156,11 +169,11 @@ namespace TreeShare
 				}
 
 				using(var stream = new NetworkStream(s))
-				using(var reader = new StreamReader(stream))
-				using(var writer = new StreamWriter(stream))
+				using(var reader = new StreamReader(stream, encoding))
+				using(var writer = new StreamWriter(stream, encoding))
 				{
 					writer.AutoFlush = true;
-					//reader.BaseStream.ReadTimeout = 10000;
+					reader.BaseStream.ReadTimeout = 10000;
 					string msg;
 					User user = null;
 
@@ -169,7 +182,6 @@ namespace TreeShare
 					{
 						msg = reader.ReadLine();
 						Protocol protocol = ProtocolHelper.ExtractProtocol(msg);
-						Console.WriteLine("[TOKEN] " + protocol);
 
 						switch(protocol)
 						{
@@ -206,11 +218,7 @@ namespace TreeShare
 				}
 			}
 			catch(IOException e)
-			{ /* This should be timeout. */
-#if debug
-				Console.WriteLine("[Debug] Timeout. {0}", e.Message);
-#endif
-			}
+			{ /* This should be timeout or connection close. */ }
 			finally
 			{
 				ReleasePort(newPort);
@@ -219,10 +227,14 @@ namespace TreeShare
 		}
 
 		/// <summary>
-		/// 
+		/// Registers the listening port of a user, which is then
+		/// used for updates sent by the server. This avoids persistent
+		/// server-client connections and connection tries of clients
+		/// that have not connected yet in the session (ports and
+		/// addresses of users are not serialized).
 		/// </summary>
-		/// <param name="reader"></param>
-		/// <param name="user"></param>
+		/// <param name="reader">StreamReader used to read from the client.</param>
+		/// <param name="user">Database entry of the current user.</param>
 		private void GetClientListenPort(StreamReader reader, User user)
 		{
 			if(user == null)
@@ -234,14 +246,14 @@ namespace TreeShare
 		}
 
 		/// <summary>
-		/// 
+		/// Updates a file based on the information sent by the user, this includes
+		/// changing contents, creating new files and deleting existing files.
 		/// </summary>
-		/// <param name="socket"></param>
-		/// <param name="reader"></param>
-		/// <param name="writer"></param>
-		/// <param name="operation"></param>
-		/// <param name="user"></param>
-		/// <returns></returns>
+		/// <param name="socket">Socket used for the communication.</param>
+		/// <param name="reader">StreamReader used to read data from the client.</param>
+		/// <param name="writer">StreamWriter used to write data to the client.</param>
+		/// <param name="operation">Type of operation to be done with the file.</param>
+		/// <param name="user">Database entry of the user (used for authorization).</param>
 		private void HandleFileUpdate(Socket socket, StreamReader reader, StreamWriter writer, Protocol operation, User user)
 		{
 			Group group;
@@ -276,10 +288,11 @@ namespace TreeShare
 		}
 
 		/// <summary>
-		/// 
+		/// Backs up and deletes a file (both from the database
+		/// and the directory tree).
 		/// </summary>
-		/// <param name="file"></param>
-		/// <returns></returns>
+		/// <param name="file">Path to the file.</param>
+		/// <returns>True if the file was deleted, false otherwise.</returns>
 		private bool DeleteFile(DB.File file)
 		{
 			lock(file)
@@ -300,12 +313,12 @@ namespace TreeShare
 		}
 
 		/// <summary>
-		/// 
+		/// Updates a file based on data sent by a client.
 		/// </summary>
-		/// <param name="file"></param>
-		/// <param name="operation"></param>
-		/// <param name="reader"></param>
-		/// <returns></returns>
+		/// <param name="file">Path to the file.</param>
+		/// <param name="operation">Type of operation to be done with the file.</param>
+		/// <param name="reader">StreamReader used as a source for the new file data.</param>
+		/// <returns>True if the file was successfully updated, false otherwise.</returns>
 		private bool WriteContentsToFile(DB.File file, Protocol operation, StreamReader reader)
 		{
 			lock(file)
@@ -317,10 +330,10 @@ namespace TreeShare
 				{
 					string line;
 					using(var stream = System.IO.File.OpenWrite(tmpFile))
-					using(var fileWriter = new StreamWriter(stream))
+					using(var fileWriter = new StreamWriter(stream, encoding))
 					{
 						while((line = reader.ReadLine()) != null && line != "TRANSMISSION_END")
-							fileWriter.WriteLine(line);
+							if(line != "") fileWriter.WriteLine(line);
 					}
 
 					if(line != "TRANSMISSION_END")
@@ -340,9 +353,8 @@ namespace TreeShare
 						FileHelper.Delete(tmpFile);
 					}
 					catch(IOException)
-					{
-						// TODO:
-					}
+					{ /* Just in case Delete throws, which should not propagate. */ }
+
 					return false;
 				}
 			}
@@ -350,12 +362,12 @@ namespace TreeShare
 		}
 
 		/// <summary>
-		/// 
+		/// Checks if the user is allowed to perform a given operation on a given file.
 		/// </summary>
-		/// <param name="name"></param>
-		/// <param name="file"></param>
-		/// <param name="type"></param>
-		/// <param name="group"></param>
+		/// <param name="name">Path to the file.</param>
+		/// <param name="file">Database entry of the file which will be assigned to.</param>
+		/// <param name="type">Type of operation to be done with the file.</param>
+		/// <param name="group">Group the user belongs to.</param>
 		/// <returns></returns>
 		private bool AuthorizeFileAccess(string name, out DB.File file, Protocol type, Group group)
 		{
@@ -388,11 +400,11 @@ namespace TreeShare
 		}
 
 		/// <summary>
-		/// 
+		/// Informs clients aboud a change to a file.
 		/// </summary>
-		/// <param name="ignored"></param>
-		/// <param name="message"></param>
-		/// <param name="fileName"></param>
+		/// <param name="ignored">If non-null, this user won't be notified.</param>
+		/// <param name="message">Type of the operation that caused the change.</param>
+		/// <param name="fileName">Path to the file.</param>
 		private void InformAll(User ignored, Protocol message, string fileName)
 		{
 			if(message != Protocol.FILE_CHANGED && message != Protocol.FILE_CREATED && message != Protocol.FILE_DELETED)
@@ -422,16 +434,16 @@ namespace TreeShare
 				{
 					client = new TcpClient(user.Address.ToString(), user.ListenPort);
 					using(var stream = client.GetStream())
-					using(var writer = new StreamWriter(stream))
-					using(var reader = new StreamReader(stream))
+					using(var writer = new StreamWriter(stream, encoding))
+					using(var reader = new StreamReader(stream, encoding))
 					{
 						writer.AutoFlush = true;
 						writer.WriteLine(message);
 
 						if(message != Protocol.FILE_DELETED)
 						{
-							using(var fileReader = new StreamReader(System.IO.File.OpenRead(fileName)))
-								SendFileContents(writer, fileName);
+							using(var fileReader = new StreamReader(System.IO.File.OpenRead(fileName), encoding))
+								SendFileContents(reader, writer, fileName);
 						}
 						else // SendFileContents already sent T_E.
 						{
@@ -454,19 +466,25 @@ namespace TreeShare
 		}
 
 		/// <summary>
-		/// 
+		/// Sends contents of a file to a client.
 		/// </summary>
-		/// <param name="writer"></param>
-		/// <param name="name"></param>
-		private bool SendFileContents(StreamWriter writer, string name)
+		/// <param name="reader">StreamReader used to ask the client for acknowledgement.</param>
+		/// <param name="writer">StreamWriter used to send the data.</param>
+		/// <param name="name">Path to the file.</param>
+		/// <returns></returns>
+		private bool SendFileContents(StreamReader reader, StreamWriter writer, string name)
 		{
 			try
 			{
-				using(var reader = new StreamReader(System.IO.File.OpenRead(name)))
+				using(var fileReader = new StreamReader(System.IO.File.OpenRead(name), encoding))
 				{
 					string line;
 					writer.WriteLine(name);
-					while((line = reader.ReadLine()) != null)
+
+					if(ProtocolHelper.ExtractProtocol(reader.ReadLine()) != Protocol.SUCCESS)
+						return true;
+
+					while((line = fileReader.ReadLine()) != null)
 						writer.WriteLine(line);
 					writer.WriteLine(Protocol.TRANSMISSION_END);
 				}
@@ -487,9 +505,10 @@ namespace TreeShare
 		}
 
 		/// <summary>
-		/// 
+		/// Creates a backing copy of a given file with the time of the back up as
+		/// extension.
 		/// </summary>
-		/// <param name="path"></param>
+		/// <param name="path">Path to the file.</param>
 		private void BackupFile(string path)
 		{
 			if(!db.GetFiles().Contains(path) || !System.IO.File.Exists(path))
@@ -502,12 +521,12 @@ namespace TreeShare
 		}
 
 		/// <summary>
-		/// 
+		/// Creates a new user account for the client (in the 'default' group).
 		/// </summary>
-		/// <param name="socket"></param>
-		/// <param name="reader"></param>
-		/// <param name="writer"></param>
-		/// <returns></returns>
+		/// <param name="socket">Socket that represents the connection.</param>
+		/// <param name="reader">StreamReader used to get credentials from the client.</param>
+		/// <param name="writer">StreamWriter used to respond to the client.</param>
+		/// <returns>Database entry for the client if the registration is successful, null otherwise.</returns>
 		private User HandleUserRegistration(Socket socket, StreamReader reader, StreamWriter writer)
 		{
 			string name = reader.ReadLine();
@@ -536,12 +555,12 @@ namespace TreeShare
 		}
 
 		/// <summary>
-		/// 
+		/// Authenticates a user based on his credentials.
 		/// </summary>
-		/// <param name="name"></param>
-		/// <param name="password"></param>
-		/// <param name="user"></param>
-		/// <returns></returns>
+		/// <param name="name">Name of the user.</param>
+		/// <param name="password">Password hash of the user (1st hash).</param>
+		/// <param name="user">Database entry of the user, will be assigne to.</param>
+		/// <returns>True if the user has been authenticated, false otherwise.</returns>
 		private bool AuthenticateUser(string name, string password, out User user)
 		{
 			var users = db.GetUsers();
@@ -552,12 +571,12 @@ namespace TreeShare
 		}
 
 		/// <summary>
-		/// 
+		/// Asks the user for his credentials and tries to authenticate him.
 		/// </summary>
-		/// <param name="socket"></param>
-		/// <param name="reader"></param>
-		/// <param name="writer"></param>
-		/// <returns></returns>
+		/// <param name="socket">Socket representing the connection.</param>
+		/// <param name="reader">StreamReader used to get the client's credentials.</param>
+		/// <param name="writer">StramWriter used to respond to the client.</param>
+		/// <returns>Database entry of the user if the authentication succeeds, false otherwise.</returns>
 		private User HandleUserAuthentication(Socket socket, StreamReader reader, StreamWriter writer)
 		{
 			string name = reader.ReadLine();
@@ -580,7 +599,7 @@ namespace TreeShare
 		}
 
 		/// <summary>
-		/// 
+		/// Loop that takes actions based on the console input.
 		/// </summary>
 		private void HandleConsoleIO()
 		{
@@ -634,9 +653,13 @@ namespace TreeShare
 								Console.WriteLine("[ERROR] Not enough arguments. Usage: file-add <path>.");
 							else if(tokens[1].Contains(".."))
 								Console.WriteLine("[ERROR] Invalid path, '..' is not allowed to avoid file system pollution.");
+							else if(!System.IO.File.Exists(tokens[1]))
+								Console.WriteLine("[ERROR] That file does not exist.");
 							else
+							{
 								db.CreateNewFile(tokens[1], null);
-							InformAll(null, Protocol.FILE_CREATED, tokens[1]);
+								InformAll(null, Protocol.FILE_CREATED, tokens[1]);
+							}
 							db.Save();
 							break;
 						case "add-right":
@@ -657,6 +680,24 @@ namespace TreeShare
 							else
 								db.RemoveRightFromGroup(tokens[1], tokens[2], AccessRightHelper.Parse(tokens[3]));
 							break;
+						case "file-inform":
+							if(tokens.Length < 2)
+								Console.WriteLine("[ERROR] Not enough arguments. Usage: file-inform <path>");
+							else if(db.GetFiles().Contains(tokens[1]))
+								InformAll(null, Protocol.FILE_CHANGED, tokens[1]);
+							else
+								Console.WriteLine("[ERROR] File {0} is not tracked.", tokens[1]);
+							break;
+						case "file-delete":
+							if(tokens.Length < 2)
+								Console.WriteLine("[ERROR] Not enough arguments. Usage: file-delete <path>");
+							else if(db.GetFiles().Contains(tokens[1]))
+							{
+								db.GetFiles().Remove(tokens[1]);
+								FileHelper.Delete(tokens[1]);
+								InformAll(null, Protocol.FILE_DELETED, tokens[1]);
+							}
+							break;
 						case "save-db":
 							db.Save();
 							break;
@@ -672,12 +713,13 @@ namespace TreeShare
 		}
 
 		/// <summary>
-		/// 
+		/// Checks if a user is authorized to recieve contents of a file (recieved
+		/// inside this function) and if so, sends him the contents.
 		/// </summary>
-		/// <param name="reader"></param>
-		/// <param name="writer"></param>
-		/// <param name="user"></param>
-		/// <returns></returns>
+		/// <param name="reader">StreamReader used to get the file name.</param>
+		/// <param name="writer">StreamWriter used to respond to the client and to send the file.</param>
+		/// <param name="user">Database entry of the user.</param>
+		/// <returns>False if no further communication will take place, true otherwise.</returns>
 		private bool HandleFileRequest(StreamReader reader, StreamWriter writer, User user)
 		{
 			string fileName = reader.ReadLine();
@@ -685,19 +727,17 @@ namespace TreeShare
 			Group group;
 			DB.File file;
 			if(user == null ||
-			   !db.GetGroups().TryGet(user.Group, out group) ||
+			   !db.GetGroups().TryGet(user.Group, out group) || !group.HasUser(user) ||
 			   !AuthorizeFileAccess(fileName, out file, Protocol.REQUEST_FILE_CONTENTS, group))
 			{
-				Console.WriteLine("[INFO] Access to {0} not authorized.", fileName);
 				writer.WriteLine(Protocol.FAIL);
 				return true;
 			}
 			else
 				writer.WriteLine(Protocol.SUCCESS);
-			Console.WriteLine("[INFO] Access to {0} authorized.", fileName);
 			
 			lock(file)
-				return SendFileContents(writer, fileName);
+				return SendFileContents(reader, writer, fileName);
 		}
 
 		/// <summary>
@@ -736,7 +776,8 @@ namespace TreeShare
 		}
 
 		/// <summary>
-		/// 
+		/// Creates the default group if it's not present
+		/// in the database (e.g. because of db save corruption).
 		/// </summary>
 		private void EnsureDefaultGroup()
 		{
@@ -759,10 +800,11 @@ namespace TreeShare
 		}
 
 		/// <summary>
-		/// 
+		/// Performs the initial communication with a client (i.e.
+		/// tells him about all the files he can read with their modification times).
 		/// </summary>
-		/// <param name="writer"></param>
-		/// <param name="user"></param>
+		/// <param name="writer">StreamWriter used to send the file infos.</param>
+		/// <param name="user">Database entry of the user used to check authorization to read.</param>
 		/// <returns>True if the server should expect additional information sent by the client, false otherwise.</returns>
 		private bool SendInitialInfo(StreamWriter writer, User user)
 		{
@@ -781,7 +823,6 @@ namespace TreeShare
 				{
 					if(!file.Test(group, AccessRight.READ))
 						continue;
-					Console.WriteLine("Sending info about file: {0}", file.Name);
 					writer.WriteLine(file.Name);
 					writer.WriteLine(file.DateModified);
 				}
@@ -795,9 +836,10 @@ namespace TreeShare
 		}
 
 		/// <summary>
-		/// 
+		/// Program entry point that runs the server.
+		/// Usage: TreeShareServer.exe [AddressToListenOn] [PortToListenOn] [PortPoolLowerBound] [PortPoolUpperBound]
 		/// </summary>
-		/// <param name="args"></param>
+		/// <param name="args">Command line arguments.</param>
 		static void Main(string[] args)
 		{
 			int port = 0, low = 0, high = 0;

@@ -8,26 +8,26 @@ using System.Xml;
 namespace TreeShare.DB
 {
 	/// <summary>
-	/// 
+	/// Database with the ability to be serialized to XML.
 	/// </summary>
 	public abstract class SerializableDatabase
 	{
 		/// <summary>
-		/// 
+		/// Saves all tables, must be overriden.
 		/// </summary>
 		public abstract void Save();
 
 		/// <summary>
-		/// 
+		/// Loads all tables, must be overriden.
 		/// </summary>
 		public abstract void Load();
 
 		/// <summary>
-		/// 
+		/// Serializes a single table into XML.
 		/// </summary>
-		/// <typeparam name="T"></typeparam>
-		/// <param name="file"></param>
-		/// <param name="db"></param>
+		/// <typeparam name="T">Type of the rows.</typeparam>
+		/// <param name="file">Target XML file.</param>
+		/// <param name="db">Table to serialize (represented by underlying dictionary).</param>
 		protected void SaveDB<T>(string file, Dictionary<string, T> db)
 		{
 			var serializer = new XmlSerializer(typeof(T[]));
@@ -50,11 +50,11 @@ namespace TreeShare.DB
 		}
 
 		/// <summary>
-		/// 
+		/// Loads a single table from XML.
 		/// </summary>
-		/// <typeparam name="T"></typeparam>
-		/// <param name="file"></param>
-		/// <param name="db"></param>
+		/// <typeparam name="T">Type of the rows.</typeparam>
+		/// <param name="file">Serialized XML file.</param>
+		/// <param name="db">Table represented by it's underlying dictionary.</param>
 		protected void LoadDB<T>(string file, Dictionary<string, T> db) where T : DatabaseItem
 		{
 			var serializer = new XmlSerializer(typeof(T[]));

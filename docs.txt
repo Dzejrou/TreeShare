@@ -1,0 +1,27 @@
+--------------------------------------------------------------------------------
+------------------------ TreeShare FileSharing Program  ------------------------
+------------------------          By Dzejrou            ------------------------
+--------------------------------------------------------------------------------
+Table of contents:
+	1. About
+        2. User's documentation
+	3. Developer's documentation
+
+------------
+- 1. About -
+------------
+	TreeShare is a file sharing program inspired by Dropbox. It allows
+	its users to set up a server keeping central file repository which
+	they can connect to via clients. Each client can 'mount' the top
+	directory of the tracked directory tree or any other sub directory
+	in the hierarchy. Any updates to the files (such as creation,
+	modification and deletion) will then be distributed through the
+	server to all other clients, which mirror the changes.
+
+	Individual clients can be assigned to groups, which can have set
+	access rights to different files, allowing the prevention of unwanted
+	modification from individuals (i.e. one man groups) or entire groups.
+
+---------------------------
+- 2. User's documentation -
+---------------------------

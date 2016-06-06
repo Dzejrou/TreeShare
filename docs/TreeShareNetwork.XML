@@ -1,0 +1,90 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>TreeShareNetwork</name>
+    </assembly>
+    <members>
+        <member name="T:TreeShare.Network.Protocol">
+            <summary>
+            Enum used to direct the network communication
+            between the server and its clients.
+            </summary>
+        </member>
+        <member name="F:TreeShare.Network.Protocol.NONE">
+            <summary>
+            Dummy message.
+            </summary>
+        </member>
+        <member name="F:TreeShare.Network.Protocol.AUTHENTICATE">
+            <summary>
+            Request for authentication sent from the client.
+            </summary>
+        </member>
+        <member name="F:TreeShare.Network.Protocol.REGISTER">
+            <summary>
+            Request for registration sent from the client.
+            </summary>
+        </member>
+        <member name="F:TreeShare.Network.Protocol.SUCCESS">
+            <summary>
+            Positive acknowldgement.
+            </summary>
+        </member>
+        <member name="F:TreeShare.Network.Protocol.FAIL">
+            <summary>
+            Negative acknowledgement.
+            </summary>
+        </member>
+        <member name="F:TreeShare.Network.Protocol.FILE_CREATED">
+            <summary>
+            Notifies that a new file has been created.
+            </summary>
+        </member>
+        <member name="F:TreeShare.Network.Protocol.FILE_CHANGED">
+            <summary>
+            Notifies that a file has been changed.
+            </summary>
+        </member>
+        <member name="F:TreeShare.Network.Protocol.FILE_DELETED">
+            <summary>
+            Notifies that a file has been deleted.
+            </summary>
+        </member>
+        <member name="F:TreeShare.Network.Protocol.TRANSMISSION_END">
+            <summary>
+            Marks end of the current communication or
+            sub communication (like file transfer).
+            </summary>
+        </member>
+        <member name="F:TreeShare.Network.Protocol.REQUEST_FILE_CONTENTS">
+            <summary>
+            Marks a request for the contents of a file.
+            </summary>
+        </member>
+        <member name="F:TreeShare.Network.Protocol.REQUEST_INITIAL_INFO">
+            <summary>
+            Marks a request for information about all
+            files that are available for reading to the
+            sending client.
+            </summary>
+        </member>
+        <member name="F:TreeShare.Network.Protocol.NEW_CONNECTION">
+            <summary>
+            Notifies about a new connection and incoming
+            client listen port.
+            </summary>
+        </member>
+        <member name="T:TreeShare.Network.ProtocolHelper">
+            <summary>
+            Utility class used to parse protocol messages.
+            </summary>
+        </member>
+        <member name="M:TreeShare.Network.ProtocolHelper.ExtractProtocol(System.String)">
+            <summary>
+            Parses a protocol token from a string.
+            </summary>
+            <param name="msg">String to parse.</param>
+            <returns>Resulting protocol or NONE if the string is invalid.</returns>
+        </member>
+    </members>
+</doc>

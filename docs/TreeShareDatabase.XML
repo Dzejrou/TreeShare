@@ -1,0 +1,553 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>TreeShareDatabase</name>
+    </assembly>
+    <members>
+        <member name="T:TreeShare.DB.AccessRight">
+            <summary>
+            Enum representing invidiual access rights that
+            can be used as flags (unix like rights).
+            </summary>
+        </member>
+        <member name="F:TreeShare.DB.AccessRight.NONE">
+            <summary>
+            No access right.
+            </summary>
+        </member>
+        <member name="F:TreeShare.DB.AccessRight.WRITE">
+            <summary>
+            Write access right.
+            </summary>
+        </member>
+        <member name="F:TreeShare.DB.AccessRight.READ">
+            <summary>
+            Read access right.
+            </summary>
+        </member>
+        <member name="F:TreeShare.DB.AccessRight.READ_WRITE">
+            <summary>
+            Read/Write access right.
+            </summary>
+        </member>
+        <member name="T:TreeShare.DB.AccessInfo">
+            <summary>
+            Group-AccessRight pair used to authorize
+            access to file by members of a group.
+            </summary>
+        </member>
+        <member name="P:TreeShare.DB.AccessInfo.Group">
+            <summary>
+            Group owning this right.
+            </summary>
+        </member>
+        <member name="P:TreeShare.DB.AccessInfo.GroupDummy">
+            <summary>
+            String proxy used for serialization,
+            this avoids serialization of groups for each
+            of their access right.
+            </summary>
+        </member>
+        <member name="P:TreeShare.DB.AccessInfo.Right">
+            <summary>
+            The right the group has to the file.
+            </summary>
+        </member>
+        <member name="M:TreeShare.DB.AccessInfo.AddRight(TreeShare.DB.AccessRight)">
+            <summary>
+            Adds a new right.
+            </summary>
+            <param name="r">Right to add.</param>
+        </member>
+        <member name="M:TreeShare.DB.AccessInfo.RemoveRight(TreeShare.DB.AccessRight)">
+            <summary>
+            Removes a right.
+            </summary>
+            <param name="r">Right to remove.</param>
+        </member>
+        <member name="M:TreeShare.DB.AccessInfo.Test(TreeShare.DB.AccessRight)">
+            <summary>
+            Tests access for a given operation.
+            </summary>
+            <param name="r">Operation represented by required right.</param>
+            <returns>True if authorized, false otherwise.</returns>
+        </member>
+        <member name="T:TreeShare.DB.AccessRightHelper">
+            <summary>
+            Utility class used to parse rights.
+            (Used to console I/O on the server.)
+            </summary>
+        </member>
+        <member name="M:TreeShare.DB.AccessRightHelper.Parse(System.String)">
+            <summary>
+            Parses an AccessRight from a string.
+            </summary>
+            <param name="right">String to parse.</param>
+            <returns>Resulting right or NONE if the string is invalid.</returns>
+        </member>
+        <member name="T:TreeShare.DB.ClientDatabase">
+            <summary>
+            Specialization of the database, used by the client.
+            Keeps track of files only as groups and users are
+            irrelevant to the client.
+            </summary>
+        </member>
+        <member name="F:TreeShare.DB.ClientDatabase.files">
+            <summary>
+            Table containing the files.
+            </summary>
+        </member>
+        <member name="F:TreeShare.DB.ClientDatabase.FileSaveFile">
+            <summary>
+            Serialization target for the file table.
+            </summary>
+        </member>
+        <member name="M:TreeShare.DB.ClientDatabase.GetFiles">
+            <summary>
+            Getter for the file table.
+            </summary>
+            <returns>The file table.</returns>
+        </member>
+        <member name="M:TreeShare.DB.ClientDatabase.Save">
+            <summary>
+            Saves the current state of the database using XML.
+            </summary>
+        </member>
+        <member name="M:TreeShare.DB.ClientDatabase.Load">
+            <summary>
+            Loads the database from an XML file.
+            </summary>
+        </member>
+        <member name="T:TreeShare.DB.SerializableDatabase">
+            <summary>
+            Database with the ability to be serialized to XML.
+            </summary>
+        </member>
+        <member name="M:TreeShare.DB.SerializableDatabase.Save">
+            <summary>
+            Saves all tables, must be overriden.
+            </summary>
+        </member>
+        <member name="M:TreeShare.DB.SerializableDatabase.Load">
+            <summary>
+            Loads all tables, must be overriden.
+            </summary>
+        </member>
+        <member name="M:TreeShare.DB.SerializableDatabase.SaveDB``1(System.String,System.Collections.Generic.Dictionary{System.String,``0})">
+            <summary>
+            Serializes a single table into XML.
+            </summary>
+            <typeparam name="T">Type of the rows.</typeparam>
+            <param name="file">Target XML file.</param>
+            <param name="db">Table to serialize (represented by underlying dictionary).</param>
+        </member>
+        <member name="M:TreeShare.DB.SerializableDatabase.LoadDB``1(System.String,System.Collections.Generic.Dictionary{System.String,``0})">
+            <summary>
+            Loads a single table from XML.
+            </summary>
+            <typeparam name="T">Type of the rows.</typeparam>
+            <param name="file">Serialized XML file.</param>
+            <param name="db">Table represented by it's underlying dictionary.</param>
+        </member>
+        <member name="T:TreeShare.DB.DatabaseTable`1">
+            <summary>
+            Represents a single table in the TreeShare database.
+            </summary>
+            <typeparam name="T">Type of the row.</typeparam>
+        </member>
+        <member name="F:TreeShare.DB.DatabaseTable`1.db">
+            <summary>
+            Underlying container.
+            </summary>
+        </member>
+        <member name="P:TreeShare.DB.DatabaseTable`1.Item(System.String)">
+            <summary>
+            Allows bracket indexing.
+            </summary>
+            <param name="name">Name of the row (and the associated entity).</param>
+            <returns>The requested table or null if not found.</returns>
+        </member>
+        <member name="P:TreeShare.DB.DatabaseTable`1.Count">
+            <summary>
+            Returns the number of rows in the table.
+            </summary>
+        </member>
+        <member name="M:TreeShare.DB.DatabaseTable`1.GetDictionary">
+            <summary>
+            Returns the underlying dictionary which can be used
+            for serialization.
+            </summary>
+            <returns></returns>
+        </member>
+        <member name="M:TreeShare.DB.DatabaseTable`1.Add(`0)">
+            <summary>
+            Adds a new row to the table.
+            </summary>
+            <param name="item">New DatabaseItem instance to add.</param>
+        </member>
+        <member name="M:TreeShare.DB.DatabaseTable`1.Remove(`0)">
+            <summary>
+            Removes an item from the table (found by reference).
+            </summary>
+            <param name="item">The DatabaseItem to remove.</param>
+        </member>
+        <member name="M:TreeShare.DB.DatabaseTable`1.Remove(System.String)">
+            <summary>
+            Removes an item from the table (found by name).
+            </summary>
+            <param name="name">Name of the row.</param>
+        </member>
+        <member name="M:TreeShare.DB.DatabaseTable`1.TryGet(System.String,`0@)">
+            <summary>
+            Tries to retrieve a row (specified by name) from
+            the table.
+            </summary>
+            <param name="name">Name of the row.</param>
+            <param name="res">Found result, will be assigned to.</param>
+            <returns>If true, the target has been found and is safe to use.</returns>
+        </member>
+        <member name="M:TreeShare.DB.DatabaseTable`1.ForEach(System.Action{`0})">
+            <summary>
+            Applies an action to every row of the database.
+            </summary>
+            <param name="action">Action to apply.</param>
+        </member>
+        <member name="M:TreeShare.DB.DatabaseTable`1.Contains(System.String)">
+            <summary>
+            Checks if a row (specified by name) is in the
+            table.
+            </summary>
+            <param name="name">Name of the row.</param>
+            <returns>True if the row is in the table, false otherwise.</returns>
+        </member>
+        <member name="M:TreeShare.DB.DatabaseTable`1.GetEnumerator">
+            <summary>
+            Returns the enumerator which can be used to iterate
+            over all rows of the table.
+            </summary>
+            <returns>Enumerator.</returns>
+        </member>
+        <member name="M:TreeShare.DB.DatabaseTable`1.System#Collections#IEnumerable#GetEnumerator">
+            <summary>
+            Returns the enumerator which can be used to iterate
+            over all rows of the table.
+            </summary>
+            <returns>Enumerator.</returns>
+        </member>
+        <member name="T:TreeShare.DB.File">
+            <summary>
+            Database row representing a tracked file.
+            </summary>
+        </member>
+        <member name="P:TreeShare.DB.File.Access">
+            <summary>
+            List of access right for different groups.
+            </summary>
+        </member>
+        <member name="P:TreeShare.DB.File.DateModified">
+            <summary>
+            Time of last modification.
+            </summary>
+        </member>
+        <member name="M:TreeShare.DB.File.#ctor">
+            <summary>
+            Default constructor used for XML serialization.
+            </summary>
+        </member>
+        <member name="M:TreeShare.DB.File.#ctor(System.String)">
+            <summary>
+            Constructor.
+            </summary>
+            <param name="p">Path to the file.</param>
+        </member>
+        <member name="M:TreeShare.DB.File.AddRight(TreeShare.DB.Group,TreeShare.DB.AccessRight)">
+            <summary>
+            Adds a given right to a group.
+            </summary>
+            <param name="g">Name of the group.</param>
+            <param name="r">Right to add.</param>
+        </member>
+        <member name="M:TreeShare.DB.File.RemoveRight(TreeShare.DB.Group,TreeShare.DB.AccessRight)">
+            <summary>
+            Removes a given right from a group.
+            </summary>
+            <param name="g">Name of the group</param>
+            <param name="r">Right to add.</param>
+        </member>
+        <member name="M:TreeShare.DB.File.SetRight(TreeShare.DB.Group,TreeShare.DB.AccessRight)">
+            <summary>
+            Sets a given right as the only right of a given group.
+            </summary>
+            <param name="g">Name of the group.</param>
+            <param name="r">Right to set.</param>
+        </member>
+        <member name="M:TreeShare.DB.File.Test(TreeShare.DB.Group,TreeShare.DB.AccessRight)">
+            <summary>
+            Tests if a group has a given right to this file.
+            </summary>
+            <param name="g">Name of the group.</param>
+            <param name="r">Right to test.</param>
+            <returns>True if the group is authorized, false otherwise.</returns>
+        </member>
+        <member name="M:TreeShare.DB.File.OlderThan(System.DateTime)">
+            <summary>
+            Checks if this file is older than a given time point.
+            </summary>
+            <param name="d">DateTime to compare against.</param>
+            <returns>True if this file is older, false otherwise.</returns>
+        </member>
+        <member name="M:TreeShare.DB.File.Update(System.DateTime)">
+            <summary>
+            Updates the modification time of this file.
+            </summary>
+            <param name="d">New modification time.</param>
+        </member>
+        <member name="M:TreeShare.DB.File.FindAccessInfo(TreeShare.DB.Group)">
+            <summary>
+            Finds Right-Group pair in the list of access rights.
+            </summary>
+            <param name="g"></param>
+            <returns></returns>
+        </member>
+        <member name="T:TreeShare.DB.Group">
+            <summary>
+            Database row representing a group of users.
+            </summary>
+        </member>
+        <member name="P:TreeShare.DB.Group.Users">
+            <summary>
+            List of users in the group.
+            </summary>
+        </member>
+        <member name="P:TreeShare.DB.Group.CanCreateFiles">
+            <summary>
+            True if the group's members can create new files.
+            </summary>
+        </member>
+        <member name="P:TreeShare.DB.Group.DefaultAccessRight">
+            <summary>
+            Default right this group has to new files.
+            </summary>
+        </member>
+        <member name="M:TreeShare.DB.Group.#ctor">
+            <summary>
+            Default constructor used for XML serialization.
+            </summary>
+        </member>
+        <member name="M:TreeShare.DB.Group.#ctor(System.String)">
+            <summary>
+            Constructor.
+            </summary>
+            <param name="n">Name of the group.</param>
+        </member>
+        <member name="M:TreeShare.DB.Group.#ctor(System.String,System.Collections.Generic.List{System.String})">
+            <summary>
+            'Copy constructor.' Initializes the group
+            with a name and an already existing set of members.
+            </summary>
+            <param name="n">Name of the group.</param>
+            <param name="u">List of the group's members.</param>
+        </member>
+        <member name="M:TreeShare.DB.Group.AddUser(TreeShare.DB.User)">
+            <summary>
+            Adds a new user to the group.
+            </summary>
+            <param name="u">User to be added.</param>
+        </member>
+        <member name="M:TreeShare.DB.Group.RemoveUser(TreeShare.DB.User)">
+            <summary>
+            Removes a user from the group.
+            </summary>
+            <param name="u">User to remove.</param>
+        </member>
+        <member name="M:TreeShare.DB.Group.HasUser(TreeShare.DB.User)">
+            <summary>
+            Checks if a given user is a member of this true.
+            </summary>
+            <param name="u">User to check.</param>
+            <returns>True if the user belongs to this group, false otherwise.</returns>
+        </member>
+        <member name="T:TreeShare.DB.DatabaseItem">
+            <summary>
+            Base class for all database rows.
+            </summary>
+        </member>
+        <member name="P:TreeShare.DB.DatabaseItem.Name">
+            <summary>
+            Name identifier of the row, used for indexing.
+            </summary>
+        </member>
+        <member name="T:TreeShare.DB.ServerDatabase">
+            <summary>
+            Specialization of the database, used by the server. Keeps track
+            of files, users and groups.
+            </summary>
+        </member>
+        <member name="F:TreeShare.DB.ServerDatabase.files">
+            <summary>
+            Table keeping track of files. 
+            </summary>
+        </member>
+        <member name="F:TreeShare.DB.ServerDatabase.users">
+            <summary>
+            Table keeping track of users.
+            </summary>
+        </member>
+        <member name="F:TreeShare.DB.ServerDatabase.groups">
+            <summary>
+            Table keeping track of groups.
+            </summary>
+        </member>
+        <member name="F:TreeShare.DB.ServerDatabase.UserSaveFile">
+            <summary>
+            Serialization target for the user table.
+            </summary>
+        </member>
+        <member name="F:TreeShare.DB.ServerDatabase.FileSaveFile">
+            <summary>
+            Serialization target for the file table.
+            </summary>
+        </member>
+        <member name="F:TreeShare.DB.ServerDatabase.GroupSaveFile">
+            <summary>
+            Serialization target for the group table.
+            </summary>
+        </member>
+        <member name="M:TreeShare.DB.ServerDatabase.GetFiles">
+            <summary>
+            File table getter.
+            </summary>
+            <returns>The table containing files.</returns>
+        </member>
+        <member name="M:TreeShare.DB.ServerDatabase.GetUsers">
+            <summary>
+            User table getter.
+            </summary>
+            <returns>The table containing users.</returns>
+        </member>
+        <member name="M:TreeShare.DB.ServerDatabase.GetGroups">
+            <summary>
+            Group table getter.
+            </summary>
+            <returns>The table containing groups.</returns>
+        </member>
+        <member name="M:TreeShare.DB.ServerDatabase.MoveUserToGroup(System.String,System.String)">
+            <summary>
+            Reassigns a given user to another group.
+            </summary>
+            <param name="userName">Name of the user.</param>
+            <param name="groupName">Name of the new group.</param>
+        </member>
+        <member name="M:TreeShare.DB.ServerDatabase.CreateNewUser(System.String)">
+            <summary>
+            Creates a new user (in the 'default' group) using password from the console.
+            </summary>
+            <param name="userName">Name of the user.</param>
+        </member>
+        <member name="M:TreeShare.DB.ServerDatabase.FileTracked(System.String)">
+            <summary>
+            Returns true if a file is tracked.
+            </summary>
+            <param name="path">Path to the file.</param>
+            <returns>True if the file is tracked, false otherwise.</returns>
+        </member>
+        <member name="M:TreeShare.DB.ServerDatabase.CreateNewFile(System.String,TreeShare.DB.Group)">
+            <summary>
+            Creates a new entry to the file table if necessary.
+            </summary>
+            <param name="path">Path to the file.</param>
+            <param name="group">Name of the owning group.</param>
+            <returns>The new entry or the already existing entry if it already existed.</returns>
+        </member>
+        <member name="M:TreeShare.DB.ServerDatabase.AddRightToGroup(System.String,System.String,TreeShare.DB.AccessRight)">
+            <summary>
+            Adds an access right to a group for a given file.
+            </summary>
+            <param name="path">Path to the file.</param>
+            <param name="group">Name of the group.</param>
+            <param name="right">Right to add.</param>
+        </member>
+        <member name="M:TreeShare.DB.ServerDatabase.RemoveRightFromGroup(System.String,System.String,TreeShare.DB.AccessRight)">
+            <summary>
+            Remoes and access right from a group for a given file.
+            </summary>
+            <param name="path">Path to the file.</param>
+            <param name="group">Name of the group.</param>
+            <param name="right">Right to remove.</param>
+        </member>
+        <member name="M:TreeShare.DB.ServerDatabase.CreateNewGroup(System.String,TreeShare.DB.AccessRight,System.Boolean)">
+            <summary>
+            Creates a new group with a given default access right.
+            </summary>
+            <param name="name">Name of the group.</param>
+            <param name="defaultRight">Access right to add to all files.</param>
+            <param name="canCreateFiles">If true, the group members will be allows to create new files.</param>
+        </member>
+        <member name="M:TreeShare.DB.ServerDatabase.AddAccessRightToSubDirectory(TreeShare.DB.Group,TreeShare.DB.AccessRight,System.String)">
+            <summary>
+            Adds a given access right to a group for all files in a given
+            directory (and its sub directories).
+            </summary>
+            <param name="group">Name of the group.</param>
+            <param name="right">Right to add.</param>
+            <param name="sub">Target directory.</param>
+        </member>
+        <member name="M:TreeShare.DB.ServerDatabase.Save">
+            <summary>
+            Serializes all tables into XML files.
+            </summary>
+        </member>
+        <member name="M:TreeShare.DB.ServerDatabase.Load">
+            <summary>
+            Deserializes all tables from their XML files.
+            </summary>
+        </member>
+        <member name="T:TreeShare.DB.User">
+            <summary>
+            Database row representing a user.
+            </summary>
+        </member>
+        <member name="P:TreeShare.DB.User.PasswordHash">
+            <summary>
+            Hash of the user's password (with salt).
+            </summary>
+        </member>
+        <member name="P:TreeShare.DB.User.Group">
+            <summary>
+            Group this user belongs to.
+            </summary>
+        </member>
+        <member name="P:TreeShare.DB.User.ListenPort">
+            <summary>
+            Port this user listens on for server
+            announcements.
+            </summary>
+        </member>
+        <member name="P:TreeShare.DB.User.Address">
+            <summary>
+            Address the user listens on for server
+            announcements.
+            </summary>
+        </member>
+        <member name="M:TreeShare.DB.User.#ctor">
+            <summary>
+            Default constructor, used for XML serialization.
+            </summary>
+        </member>
+        <member name="M:TreeShare.DB.User.Authenticate(System.String)">
+            <summary>
+            Checks if a given password matches this user's password.
+            </summary>
+            <param name="pass">Password hash (without salt).</param>
+            <returns>True if the passwords match, false otherwise.</returns>
+        </member>
+        <member name="M:TreeShare.DB.User.GetSaltedHash(System.String,System.String)">
+            <summary>
+            Returns the salted version of a user password.
+            </summary>
+            <param name="name">Name of the user.</param>
+            <param name="pass">Hash of the user's password (without salt).</param>
+            <returns></returns>
+        </member>
+    </members>
+</doc>

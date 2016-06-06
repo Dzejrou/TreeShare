@@ -1,0 +1,242 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>TreeShareServer</name>
+    </assembly>
+    <members>
+        <member name="T:TreeShare.Server">
+            <summary>
+            Represents a server that manages a directory tree which clients can
+            connect to and synchronize their files with.
+            </summary>
+        </member>
+        <member name="F:TreeShare.Server.db">
+            <summary>
+            Database that keeps track of files, users and groups. 
+            </summary>
+        </member>
+        <member name="F:TreeShare.Server.serverAddress">
+            <summary>
+            Address of the network device this server listens on. 
+            </summary>
+        </member>
+        <member name="F:TreeShare.Server.serverPort">
+            <summary>
+            Number of the port this server listens on.
+            </summary>
+        </member>
+        <member name="F:TreeShare.Server.portLow">
+            <summary>
+            Lower bound of the port range used for clients.
+            </summary>
+        </member>
+        <member name="F:TreeShare.Server.portHigh">
+            <summary>
+            Upper bound of the port range used for clients.
+            </summary>
+        </member>
+        <member name="F:TreeShare.Server.tcpListener">
+            <summary>
+            Listener used to accept incoming connections from clients.
+            </summary>
+        </member>
+        <member name="F:TreeShare.Server.portsInUse">
+            <summary>
+            List of port number that are cuttently used for communication
+            with clients.
+            </summary>
+        </member>
+        <member name="F:TreeShare.Server.running">
+            <summary>
+            Control variable that allows the admin to shutdown the server
+            from the console I/O thread without the use of locks (interlocked
+            used instead).
+            </summary>
+        </member>
+        <member name="F:TreeShare.Server.encoding">
+            <summary>
+            Encoding used for sending files over network.
+            </summary>
+        </member>
+        <member name="M:TreeShare.Server.#ctor(System.String,System.Int32,System.Int32,System.Int32)">
+            <summary>
+            Constructor. Throws ArgumentException if it gets
+            and invalid address.
+            </summary>
+            <param name="a">Address the server listens on.</param>
+            <param name="p">Port the server listens on.</param>
+            <param name="l">Lower bound of the port pool.</param>
+            <param name="h">Higher bound of the port pool.</param>
+        </member>
+        <member name="M:TreeShare.Server.Start">
+            <summary>
+            Starts the main loop in which the server accepts client connections
+            and a parallel loop in which the server manages console I/O.
+            </summary>
+        </member>
+        <member name="M:TreeShare.Server.AcceptConnection">
+            <summary>
+            Accepts client connections and spawns new tasks that
+            handle their requests.
+            </summary>
+        </member>
+        <member name="M:TreeShare.Server.HandleConnection(System.Net.Sockets.Socket)">
+            <summary>
+            Handles communication with a single client.
+            </summary>
+            <param name="s">Socket used for communication with the client.</param>
+        </member>
+        <member name="M:TreeShare.Server.GetClientListenPort(System.IO.StreamReader,TreeShare.DB.User)">
+            <summary>
+            Registers the listening port of a user, which is then
+            used for updates sent by the server. This avoids persistent
+            server-client connections and connection tries of clients
+            that have not connected yet in the session (ports and
+            addresses of users are not serialized).
+            </summary>
+            <param name="reader">StreamReader used to read from the client.</param>
+            <param name="user">Database entry of the current user.</param>
+        </member>
+        <member name="M:TreeShare.Server.HandleFileUpdate(System.Net.Sockets.Socket,System.IO.StreamReader,System.IO.StreamWriter,TreeShare.Network.Protocol,TreeShare.DB.User)">
+            <summary>
+            Updates a file based on the information sent by the user, this includes
+            changing contents, creating new files and deleting existing files.
+            </summary>
+            <param name="socket">Socket used for the communication.</param>
+            <param name="reader">StreamReader used to read data from the client.</param>
+            <param name="writer">StreamWriter used to write data to the client.</param>
+            <param name="operation">Type of operation to be done with the file.</param>
+            <param name="user">Database entry of the user (used for authorization).</param>
+        </member>
+        <member name="M:TreeShare.Server.DeleteFile(TreeShare.DB.File)">
+            <summary>
+            Backs up and deletes a file (both from the database
+            and the directory tree).
+            </summary>
+            <param name="file">Path to the file.</param>
+            <returns>True if the file was deleted, false otherwise.</returns>
+        </member>
+        <member name="M:TreeShare.Server.WriteContentsToFile(TreeShare.DB.File,TreeShare.Network.Protocol,System.IO.StreamReader)">
+            <summary>
+            Updates a file based on data sent by a client.
+            </summary>
+            <param name="file">Path to the file.</param>
+            <param name="operation">Type of operation to be done with the file.</param>
+            <param name="reader">StreamReader used as a source for the new file data.</param>
+            <returns>True if the file was successfully updated, false otherwise.</returns>
+        </member>
+        <member name="M:TreeShare.Server.AuthorizeFileAccess(System.String,TreeShare.DB.File@,TreeShare.Network.Protocol,TreeShare.DB.Group)">
+            <summary>
+            Checks if the user is allowed to perform a given operation on a given file.
+            </summary>
+            <param name="name">Path to the file.</param>
+            <param name="file">Database entry of the file which will be assigned to.</param>
+            <param name="type">Type of operation to be done with the file.</param>
+            <param name="group">Group the user belongs to.</param>
+            <returns></returns>
+        </member>
+        <member name="M:TreeShare.Server.InformAll(TreeShare.DB.User,TreeShare.Network.Protocol,System.String)">
+            <summary>
+            Informs clients aboud a change to a file.
+            </summary>
+            <param name="ignored">If non-null, this user won't be notified.</param>
+            <param name="message">Type of the operation that caused the change.</param>
+            <param name="fileName">Path to the file.</param>
+        </member>
+        <member name="M:TreeShare.Server.SendFileContents(System.IO.StreamReader,System.IO.StreamWriter,System.String)">
+            <summary>
+            Sends contents of a file to a client.
+            </summary>
+            <param name="reader">StreamReader used to ask the client for acknowledgement.</param>
+            <param name="writer">StreamWriter used to send the data.</param>
+            <param name="name">Path to the file.</param>
+            <returns></returns>
+        </member>
+        <member name="M:TreeShare.Server.BackupFile(System.String)">
+            <summary>
+            Creates a backing copy of a given file with the time of the back up as
+            extension.
+            </summary>
+            <param name="path">Path to the file.</param>
+        </member>
+        <member name="M:TreeShare.Server.HandleUserRegistration(System.Net.Sockets.Socket,System.IO.StreamReader,System.IO.StreamWriter)">
+            <summary>
+            Creates a new user account for the client (in the 'default' group).
+            </summary>
+            <param name="socket">Socket that represents the connection.</param>
+            <param name="reader">StreamReader used to get credentials from the client.</param>
+            <param name="writer">StreamWriter used to respond to the client.</param>
+            <returns>Database entry for the client if the registration is successful, null otherwise.</returns>
+        </member>
+        <member name="M:TreeShare.Server.AuthenticateUser(System.String,System.String,TreeShare.DB.User@)">
+            <summary>
+            Authenticates a user based on his credentials.
+            </summary>
+            <param name="name">Name of the user.</param>
+            <param name="password">Password hash of the user (1st hash).</param>
+            <param name="user">Database entry of the user, will be assigne to.</param>
+            <returns>True if the user has been authenticated, false otherwise.</returns>
+        </member>
+        <member name="M:TreeShare.Server.HandleUserAuthentication(System.Net.Sockets.Socket,System.IO.StreamReader,System.IO.StreamWriter)">
+            <summary>
+            Asks the user for his credentials and tries to authenticate him.
+            </summary>
+            <param name="socket">Socket representing the connection.</param>
+            <param name="reader">StreamReader used to get the client's credentials.</param>
+            <param name="writer">StramWriter used to respond to the client.</param>
+            <returns>Database entry of the user if the authentication succeeds, false otherwise.</returns>
+        </member>
+        <member name="M:TreeShare.Server.HandleConsoleIO">
+            <summary>
+            Loop that takes actions based on the console input.
+            </summary>
+        </member>
+        <member name="M:TreeShare.Server.HandleFileRequest(System.IO.StreamReader,System.IO.StreamWriter,TreeShare.DB.User)">
+            <summary>
+            Checks if a user is authorized to recieve contents of a file (recieved
+            inside this function) and if so, sends him the contents.
+            </summary>
+            <param name="reader">StreamReader used to get the file name.</param>
+            <param name="writer">StreamWriter used to respond to the client and to send the file.</param>
+            <param name="user">Database entry of the user.</param>
+            <returns>False if no further communication will take place, true otherwise.</returns>
+        </member>
+        <member name="M:TreeShare.Server.GetNewPort">
+            <summary>
+            Returns a new port from the port pool.
+            </summary>
+            <returns>
+            New port that can be used for communication with a client.
+            -1 if no ports are available.
+            </returns>
+        </member>
+        <member name="M:TreeShare.Server.ReleasePort(System.Int32)">
+            <summary>
+            Returns a used port back to the available port pool.
+            </summary>
+            <param name="p">Port to be released.</param>
+        </member>
+        <member name="M:TreeShare.Server.EnsureDefaultGroup">
+            <summary>
+            Creates the default group if it's not present
+            in the database (e.g. because of db save corruption).
+            </summary>
+        </member>
+        <member name="M:TreeShare.Server.SendInitialInfo(System.IO.StreamWriter,TreeShare.DB.User)">
+            <summary>
+            Performs the initial communication with a client (i.e.
+            tells him about all the files he can read with their modification times).
+            </summary>
+            <param name="writer">StreamWriter used to send the file infos.</param>
+            <param name="user">Database entry of the user used to check authorization to read.</param>
+            <returns>True if the server should expect additional information sent by the client, false otherwise.</returns>
+        </member>
+        <member name="M:TreeShare.Server.Main(System.String[])">
+            <summary>
+            Program entry point that runs the server.
+            Usage: TreeShareServer.exe [AddressToListenOn] [PortToListenOn] [PortPoolLowerBound] [PortPoolUpperBound]
+            </summary>
+            <param name="args">Command line arguments.</param>
+        </member>
+    </members>
+</doc>

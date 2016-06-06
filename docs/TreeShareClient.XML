@@ -1,0 +1,250 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>TreeShareClient</name>
+    </assembly>
+    <members>
+        <member name="T:TreeShare.Client">
+            <summary>
+            Represents a client that synchronizes it's tracked
+            directory tree with the TreeShare server.
+            </summary>
+        </member>
+        <member name="P:TreeShare.Client.TrackedDirectory">
+            <summary>
+            Name of the tracked directory name.
+            </summary>
+        </member>
+        <member name="F:TreeShare.Client.CheckPeriod">
+            <summary>
+            Period (in seconds) between file checks.
+            </summary>
+        </member>
+        <member name="F:TreeShare.Client.db">
+            <summary>
+            Database that stores file info.
+            </summary>
+        </member>
+        <member name="F:TreeShare.Client.checkTimer">
+            <summary>
+            Timer used to periodically check all files.
+            </summary>
+        </member>
+        <member name="F:TreeShare.Client.filesChanged">
+            <summary>
+            List of files that have changed since the last check.
+            </summary>
+        </member>
+        <member name="F:TreeShare.Client.filesCreated">
+            <summary>
+            List of files that have been created since the last check.
+            </summary>
+        </member>
+        <member name="F:TreeShare.Client.filesDeleted">
+            <summary>
+            List of files that have been deleted since the last check
+            </summary>
+        </member>
+        <member name="F:TreeShare.Client.filesChecked">
+            <summary>
+            List of files that have been checked in the last check.
+            </summary>
+        </member>
+        <member name="F:TreeShare.Client.configFile">
+            <summary>
+            File containing client configuration info.
+            </summary>
+        </member>
+        <member name="F:TreeShare.Client.userData">
+            <summary>
+            File containing user login credentials.
+            </summary>
+        </member>
+        <member name="F:TreeShare.Client.ignoredEndingsFile">
+            <summary>
+            File containing ignored file endings.
+            </summary>
+        </member>
+        <member name="F:TreeShare.Client.serverAddress">
+            <summary>
+            Address that the server listens on.
+            </summary>
+        </member>
+        <member name="F:TreeShare.Client.serverPort">
+            <summary>
+            Port that the server listens on.
+            </summary>
+        </member>
+        <member name="F:TreeShare.Client.listenPort">
+            <summary>
+            Port that the client listens on.
+            </summary>
+        </member>
+        <member name="F:TreeShare.Client.tcpListener">
+            <summary>
+            Listener used to accept connections from the server.
+            </summary>
+        </member>
+        <member name="F:TreeShare.Client.forceManualAuthentization">
+            <summary>
+            If true, the userData file will be ignored and console
+            login will be required.
+            </summary>
+        </member>
+        <member name="F:TreeShare.Client.canCreateFiles">
+            <summary>
+            True if this client can create new files.
+            </summary>
+        </member>
+        <member name="F:TreeShare.Client.daemonize">
+            <summary>
+            If true, the console will be hidden.
+            </summary>
+        </member>
+        <member name="F:TreeShare.Client.name">
+            <summary>
+            Name of the user.
+            </summary>
+        </member>
+        <member name="F:TreeShare.Client.passwordHash">
+            <summary>
+            Hash of the users password.
+            </summary>
+        </member>
+        <member name="F:TreeShare.Client.ignoredNameEndings">
+            <summary>
+            List of ignored file name endings.
+            </summary>
+        </member>
+        <member name="F:TreeShare.Client.subTreePrefix">
+            <summary>
+            Prefix that should be prepended to the TrackedDirectory
+            variable (used to track sub trees).
+            </summary>
+        </member>
+        <member name="F:TreeShare.Client.encoding">
+            <summary>
+            Encoding used for communication with the server.
+            </summary>
+        </member>
+        <member name="M:TreeShare.Client.#ctor(System.String,System.Int32)">
+            <summary>
+            Constructor.
+            </summary>
+            <param name="a">Address of the server.</param>
+            <param name="p">Port of the server.</param>
+        </member>
+        <member name="M:TreeShare.Client.Start">
+            <summary>
+            Starts the client and causes it to periodically
+            check files and listen to the server announcements.
+            </summary>
+        </member>
+        <member name="M:TreeShare.Client.HandleServerNotice(System.Net.Sockets.Socket)">
+            <summary>
+            Handles a notification from the server (mostly
+            regardin file changes).
+            </summary>
+            <param name="s">Socket used for the communication.</param>
+        </member>
+        <member name="M:TreeShare.Client.Authenticate">
+            <summary>
+            Performs initial authentication either from config file, or
+            (if it's missing or manual authentication is forced) from
+            the console (and saves info on success).
+            </summary>
+            <returns>True if authentication succeeded, false otherwise.</returns>
+        </member>
+        <member name="M:TreeShare.Client.GetCredentialsFromConsole(System.String@,System.String@)">
+            <summary>
+            Asks the user (via console) if he wants to register or login,
+            then prompts for login/registration credentials.
+            </summary>
+            <param name="name">User name, will be assigned to.</param>
+            <param name="password">Password, will be assigned to.</param>
+            <returns>True if registration is needed, false otherwise.</returns>
+        </member>
+        <member name="M:TreeShare.Client.PerformCheck(System.Object)">
+            <summary>
+            Checks the tracked directory for changes and
+            notifies the server if necessary.
+            </summary>
+            <param name="state">State required by the timer, not used.</param>
+        </member>
+        <member name="M:TreeShare.Client.CheckDirectory(System.String)">
+            <summary>
+            Checks a given directory for file changes.
+            </summary>
+            <param name="dir">Path to the directory.</param>
+        </member>
+        <member name="M:TreeShare.Client.HandleFile(System.String)">
+            <summary>
+            Checks a single file and handles changes if
+            any occured (modification, creation).
+            </summary>
+            <param name="file">Path to the file.</param>
+        </member>
+        <member name="M:TreeShare.Client.ClearLists">
+            <summary>
+            Clears all file lists (changed, deleted etc.).
+            </summary>
+        </member>
+        <member name="M:TreeShare.Client.InformServer">
+            <summary>
+            Informs server about all changes found during the last
+            directory checks.
+            </summary>
+        </member>
+        <member name="M:TreeShare.Client.SendFileContents(System.IO.StreamWriter,System.String)">
+            <summary>
+            Sends the contents of a file to the server.
+            </summary>
+            <param name="writer">StreamWriter used to send the file.</param>
+            <param name="file">Path to the file.</param>
+        </member>
+        <member name="M:TreeShare.Client.RequestFileContents(System.IO.StreamReader,System.IO.StreamWriter,System.String)">
+            <summary>
+            Requests (and reads if authorized) contents of a given file from
+            the server.
+            </summary>
+            <param name="reader">StreamReader used to read authorization result and the contents of the file.</param>
+            <param name="writer">StreamWriter used to send the request.</param>
+            <param name="file">Path to the file.</param>
+        </member>
+        <member name="M:TreeShare.Client.Ignored(System.String)">
+            <summary>
+            Checks if a file is ignored (based on its name's ending).
+            </summary>
+            <param name="file">Path to the file.</param>
+            <returns>True if the file is ignored, false otherwise.</returns>
+        </member>
+        <member name="M:TreeShare.Client.LoadConfig">
+            <summary>
+            Loads the configuration for this client. See documentation
+            for the config options.
+            </summary>
+            <returns>True if the load was successful, false otherwise.</returns>
+        </member>
+        <member name="M:TreeShare.Client.PerformInitialRequest">
+            <summary>
+            Asks the server for information (modification time) about all files
+            this client has read access to and requests contents if necessary.
+            </summary>
+        </member>
+        <member name="M:TreeShare.Client.ConnectToServer">
+            <summary>
+            Connects to server and receives new port from it. Immediately
+            after connects to the new assigned port.
+            </summary>
+            <returns>TcpClient that can be used for communication with the client.</returns>
+        </member>
+        <member name="M:TreeShare.Client.Main(System.String[])">
+            <summary>
+            Entry point of the program. Initializes and
+            starts the client.
+            Usage: TreeShareClient [ServerAddress] [ServerPort]
+            </summary>
+            <param name="args">Command line arguments.</param>
+        </member>
+    </members>
+</doc>

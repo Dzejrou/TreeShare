@@ -603,7 +603,7 @@ namespace TreeShare
 							writer.WriteLine(subTreePrefix + file);
 							db.GetFiles().Remove(file);
 
-							/**
+							/*
 							 * Note: This is either SUCCESS or FAIL (depending of authorization).
 							 *       Currently is ignored, assuming the user just wants to get rid of the file,
 							 *       but it may be useful to add a config option to request the data of deleted
@@ -892,7 +892,7 @@ namespace TreeShare
 		/// <summary>
 		/// Entry point of the program. Initializes and
 		/// starts the client.
-		/// Usage: TreeShareClient <ServerAddress> <ServerPort>
+		/// Usage: TreeShareClient [ServerAddress] [ServerPort]
 		/// </summary>
 		/// <param name="args">Command line arguments.</param>
 		static void Main(string[] args)

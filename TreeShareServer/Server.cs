@@ -217,7 +217,7 @@ namespace TreeShare
 					}
 				}
 			}
-			catch(IOException e)
+			catch(IOException)
 			{ /* This should be timeout or connection close. */ }
 			finally
 			{

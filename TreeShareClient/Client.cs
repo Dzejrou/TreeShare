@@ -227,7 +227,6 @@ namespace TreeShare
 						}
 						else
 							reader.ReadLine(); // T_E token, can be ignored here.
-						Console.WriteLine("ACCEPTED {0}, does start with {1}", name, subTreePrefix + TrackedDirectory + @"\");
 					}
 					else
 					{
@@ -238,7 +237,6 @@ namespace TreeShare
 						else
 							reader.ReadLine(); // T_E token, can be ignored here.
 						writer.WriteLine(Protocol.TRANSMISSION_END);
-						Console.WriteLine("DENIED {0}, does not start with {1}", name, subTreePrefix + TrackedDirectory + @"\");
 						return;
 					}
 
@@ -276,14 +274,8 @@ namespace TreeShare
 								using(var fileWriter = new StreamWriter(fstream, encoding))
 								{
 									while((line = reader.ReadLine()) != null && line != "TRANSMISSION_END")
-										fileWriter.Write(line);
+										fileWriter.WriteLine(line);
 									fileWriter.BaseStream.SetLength(fileWriter.BaseStream.Position);
-
-									if(line != "TRANSMISSION_END")
-									{
-										// TODO:
-										Console.WriteLine("NO TRANSMISSION END!");
-									}
 								}
 
 								FileHelper.Move(tmpName, file.Name);
@@ -335,25 +327,29 @@ namespace TreeShare
 				}
 			}
 
-			bool authenticated = false; // TODO: Handle Socket Exception below.
+			bool authenticated = false;
 			using(var client = ConnectToServer())
-			using(var stream = client.GetStream())
-			using(var writer = new StreamWriter(stream, encoding))
-			using(var reader = new StreamReader(stream, encoding))
-			{ // Actual authentication communication.
-				writer.AutoFlush = true;
-				writer.WriteLine(register ? Protocol.REGISTER : Protocol.AUTHENTICATE);
-				writer.WriteLine(name);
-				writer.WriteLine(passwordHash);
+			{
+				if(client == null)
+					return false;
+				using(var stream = client.GetStream())
+				using(var writer = new StreamWriter(stream, encoding))
+				using(var reader = new StreamReader(stream, encoding))
+				{ // Actual authentication communication.
+					writer.AutoFlush = true;
+					writer.WriteLine(register ? Protocol.REGISTER : Protocol.AUTHENTICATE);
+					writer.WriteLine(name);
+					writer.WriteLine(passwordHash);
 
-				Protocol response = ProtocolHelper.ExtractProtocol(reader.ReadLine());
-				authenticated = (response == Protocol.SUCCESS);
+					Protocol response = ProtocolHelper.ExtractProtocol(reader.ReadLine());
+					authenticated = (response == Protocol.SUCCESS);
 
-				if(authenticated)
-				{
-					writer.WriteLine(Protocol.NEW_CONNECTION);
-					writer.WriteLine(listenPort);
-					writer.WriteLine(Protocol.TRANSMISSION_END);
+					if(authenticated)
+					{
+						writer.WriteLine(Protocol.NEW_CONNECTION);
+						writer.WriteLine(listenPort);
+						writer.WriteLine(Protocol.TRANSMISSION_END);
+					}
 				}
 			}
 
@@ -478,7 +474,6 @@ namespace TreeShare
 			var date = System.IO.File.GetLastWriteTime(file);
 			if(!files.TryGet(file, out tmp) && canCreateFiles)
 			{
-				Console.WriteLine("[INFO] New file found: {0}", file);
 				var f = new DB.File();
 				f.Name = file;
 				f.DateModified = date;
@@ -488,7 +483,6 @@ namespace TreeShare
 			}
 			else if(tmp != null && tmp.OlderThan(date))
 			{
-				Console.WriteLine("[INFO] Newer version of {0} found.", file);
 				tmp.Update(date);
 				filesChanged.Add(file);
 			}
@@ -531,6 +525,8 @@ namespace TreeShare
 			try
 			{
 				var client = ConnectToServer();
+				if(client == null)
+					return;
 				var files = db.GetFiles();
 				using(var stream = client.GetStream())
 				using(var writer = new StreamWriter(stream, encoding))
@@ -642,7 +638,7 @@ namespace TreeShare
 				{
 					string line;
 					while((line = reader.ReadLine()) != null)
-						if(line != "") writer.WriteLine(line);
+						writer.WriteLine(line);
 					writer.WriteLine(Protocol.TRANSMISSION_END);
 				}
 			}
@@ -792,9 +788,14 @@ namespace TreeShare
 		{
 			var filesToRequest = new List<string>();
 			var filesOnServer = new List<string>();
+			TcpClient client = null;
 			try
 			{
-				var client = ConnectToServer();
+				client = ConnectToServer();
+
+				if(client == null)
+					return;
+
 				using(var stream = client.GetStream())
 				using(var reader = new StreamReader(stream, encoding))
 				using(var writer = new StreamWriter(stream, encoding))
@@ -863,6 +864,8 @@ namespace TreeShare
 			finally
 			{
 				db.Save();
+				if(client != null)
+					client.Close();
 			}
 		}
 
@@ -873,18 +876,26 @@ namespace TreeShare
 		/// <returns>TcpClient that can be used for communication with the client.</returns>
 		private TcpClient ConnectToServer()
 		{
-			var client = new TcpClient(serverAddress, serverPort);
-			using(var reader = new StreamReader(client.GetStream(), encoding))
+			TcpClient client = null;
+			try
 			{
-				string msg = reader.ReadLine(); // New port.
-				int newPort;
-				if(!int.TryParse(msg, out newPort))
-					throw new Exception("Server didn't sent new port!");
+				client = new TcpClient(serverAddress, serverPort);
+				using(var reader = new StreamReader(client.GetStream(), encoding))
+				{
+					string msg = reader.ReadLine(); // New port.
+					int newPort;
+					if(!int.TryParse(msg, out newPort))
+						throw new Exception("Server didn't sent new port!");
 
-				var tmp = new TcpClient(serverAddress, newPort);
-				client.Close();
-				client = tmp;
+					var tmp = new TcpClient(serverAddress, newPort);
+					client.Close();
+					client = tmp;
 
+				}
+			}
+			catch(SocketException)
+			{
+				Console.WriteLine("[ERROR] Cannot connect to the server at {0}:{1}", serverAddress, serverPort);
 			}
 			return client;
 		}

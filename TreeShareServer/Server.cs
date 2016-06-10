@@ -182,6 +182,8 @@ namespace TreeShare
 					{
 						msg = reader.ReadLine();
 						Protocol protocol = ProtocolHelper.ExtractProtocol(msg);
+						if(protocol == Protocol.NONE) // Client crash/hang.
+							return;
 
 						switch(protocol)
 						{
@@ -333,7 +335,8 @@ namespace TreeShare
 					using(var fileWriter = new StreamWriter(stream, encoding))
 					{
 						while((line = reader.ReadLine()) != null && line != "TRANSMISSION_END")
-							if(line != "") fileWriter.WriteLine(line);
+							fileWriter.WriteLine(line);
+						fileWriter.BaseStream.SetLength(fileWriter.BaseStream.Position);
 					}
 
 					if(line != "TRANSMISSION_END")
@@ -416,7 +419,7 @@ namespace TreeShare
 
 			foreach(var user in db.GetUsers())
 			{
-				if(user == ignored || user.Address == null)
+				if(user == ignored || user.Address == null || user.ListenPort == -1)
 					continue;
 
 				if(message != Protocol.FILE_DELETED)

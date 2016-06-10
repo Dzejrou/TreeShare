@@ -5,6 +5,7 @@ DummyClient/*
 *.csproj
 */Properties/*
 *.config
+PlayGround/*
 
 
 
